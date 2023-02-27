@@ -1,3 +1,14 @@
+from tensorflow.keras import datasets, layers, models
+from sklearn.model_selection import train_test_split
+from keras.utils import np_utils
+from tensorflow.keras.utils import to_categorical
+import tensorflow as tf
+import numpy as np
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+from tensorflow.keras import optimizers
+from tensorflow.keras.losses import CategoricalCrossentropy
 import tensorflow.compat.v2 as tf
 from tensorflow import keras
 from keras import backend
@@ -137,7 +148,8 @@ def ResNet(
     x = layers.ZeroPadding3D(padding=((3, 3), (3, 3), (3, 3)), name="conv1_pad")(
         img_input
     )
-    x = layers.Conv3D(64, 7, strides=2, use_bias=use_bias, name="conv1_conv")(x)
+    x = layers.Conv3D(64, 7, strides=2, use_bias=use_bias,
+                      name="conv1_conv")(x)
 
     if not preact:
         x = layers.BatchNormalization(
@@ -145,7 +157,8 @@ def ResNet(
         )(x)
         x = layers.Activation("relu", name="conv1_relu")(x)
 
-    x = layers.ZeroPadding3D(padding=((1, 1), (1, 1), (1, 1)), name="pool1_pad")(x)
+    x = layers.ZeroPadding3D(
+        padding=((1, 1), (1, 1), (1, 1)), name="pool1_pad")(x)
     x = layers.MaxPooling3D(3, strides=2, name="pool1_pool")(x)
 
     x = stack_fn(x)
@@ -237,7 +250,7 @@ def block1(x, filters, kernel_size=3, stride=1, conv_shortcut=True, name=None):
     x = layers.Conv3D(
         filters, kernel_size, padding="SAME", name=name + "_2_conv"
     )(x)
-    ##### Dropout layer
+    # Dropout layer
     x = layers.Dropout(0.3)(x)
 
     x = layers.BatchNormalization(
@@ -315,7 +328,8 @@ def block2(x, filters, kernel_size=3, stride=1, conv_shortcut=False, name=None):
     )(x)
     x = layers.Activation("relu", name=name + "_1_relu")(x)
 
-    x = layers.ZeroPadding3D(padding=((1, 1), (1, 1), (1, 1)), name=name + "_2_pad")(x)
+    x = layers.ZeroPadding3D(
+        padding=((1, 1), (1, 1), (1, 1)), name=name + "_2_pad")(x)
     x = layers.Conv3D(
         filters,
         kernel_size,
@@ -324,7 +338,7 @@ def block2(x, filters, kernel_size=3, stride=1, conv_shortcut=False, name=None):
         name=name + "_2_conv",
     )(x)
 
-    ##### Dropout layer
+    # Dropout layer
     x = layers.Dropout(0.3)(x)
 
     x = layers.BatchNormalization(
@@ -404,7 +418,8 @@ def block3(
     x = layers.Activation("relu", name=name + "_1_relu")(x)
 
     c = filters // groups
-    x = layers.ZeroPadding3D(padding=((1, 1), (1, 1), (1, 1)), name=name + "_2_pad")(x)
+    x = layers.ZeroPadding3D(
+        padding=((1, 1), (1, 1), (1, 1)), name=name + "_2_pad")(x)
     x = layers.DepthwiseConv3D(
         kernel_size,
         strides=stride,
@@ -413,7 +428,7 @@ def block3(
         name=name + "_2_conv",
     )(x)
 
-    ##### Dropout layer
+    # Dropout layer
     x = layers.Dropout(0.3)(x)
 
     x_shape = backend.shape(x)[:-1]
@@ -454,7 +469,8 @@ def stack3(x, filters, blocks, stride1=2, groups=32, name=None):
     Returns:
       Output tensor for the stacked blocks.
     """
-    x = block3(x, filters, stride=stride1, groups=groups, name=name + "_block1")
+    x = block3(x, filters, stride=stride1,
+               groups=groups, name=name + "_block1")
     for i in range(2, blocks + 1):
         x = block3(
             x,
@@ -571,64 +587,60 @@ def preprocess_input(x, data_format=None):
 def decode_predictions(preds, top=5):
     return imagenet_utils.decode_predictions(preds, top=top)
 
-from tensorflow.keras import datasets, layers, models
-from tensorflow.keras.losses import CategoricalCrossentropy
-from tensorflow.keras import optimizers
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import classification_report
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras.utils import to_categorical
-from keras.utils import np_utils
-from sklearn.model_selection import train_test_split
 
 def Custom3DResNet50V2_Dropout(input_shape, classes, batch_size, epochs, learning_rate, lr_decay_times, lr_decay_rate, x_train_length):
     from tensorflow import keras
     inputs = keras.Input(shape=input_shape)
-    outputs = ResNet50(weights=None, input_shape=input_shape, classes=classes)(inputs)
+    outputs = ResNet50(weights=None, input_shape=input_shape,
+                       classes=classes)(inputs)
     model = keras.Model(inputs, outputs)
-    
+
     if lr_decay_times and lr_decay_rate == False:
         print("lr_decay_times and lr_decay_rate are False")
         import math
         IterationNumberFor1epoch = math.ceil(x_train_length/batch_size)
-        first_decay_steps = int(math.ceil(epochs*IterationNumberFor1epoch/(2**lr_decay_times)))
-        print("learning rates decay per " + str(first_decay_steps) + " iterations")
+        first_decay_steps = int(
+            math.ceil(epochs*IterationNumberFor1epoch/(2**lr_decay_times)))
+        print("learning rates decay per " +
+              str(first_decay_steps) + " iterations")
         learning_rate = optimizers.schedules.CosineDecayRestarts(
-        initial_learning_rate = learning_rate,
-        first_decay_steps=first_decay_steps,
-        t_mul=2.0,
-        m_mul=lr_decay_rate,
-        alpha=1e-6,
-        name=None)
+            initial_learning_rate=learning_rate,
+            first_decay_steps=first_decay_steps,
+            t_mul=2.0,
+            m_mul=lr_decay_rate,
+            alpha=1e-6,
+            name=None)
 
-    model.compile(optimizer = optimizers.Adam(learning_rate = learning_rate), loss = 'categorical_crossentropy', metrics = ['accuracy'])
-    model._name="Custom3DResNet50V2_Dropout"
+    model.compile(optimizer=optimizers.Adam(learning_rate=learning_rate),
+                  loss='categorical_crossentropy', metrics=['accuracy'])
+    model._name = "Custom3DResNet50V2_Dropout"
     return model
 
 
 def Custom3DResNet152V2_Dropout(input_shape, classes, batch_size, epochs, learning_rate, lr_decay_times, lr_decay_rate, x_train_length):
     from tensorflow import keras
     inputs = keras.Input(shape=input_shape)
-    outputs = ResNet152(weights=None, input_shape=input_shape, classes=classes)(inputs)
+    outputs = ResNet152(weights=None, input_shape=input_shape,
+                        classes=classes)(inputs)
     model = keras.Model(inputs, outputs)
-    
+
     if lr_decay_times and lr_decay_rate == False:
         print("lr_decay_times and lr_decay_rate are False")
         import math
         IterationNumberFor1epoch = math.ceil(x_train_length/batch_size)
-        first_decay_steps = int(math.ceil(epochs*IterationNumberFor1epoch/(2**lr_decay_times)))
-        print("learning rates decay per " + str(first_decay_steps) + " iterations")
+        first_decay_steps = int(
+            math.ceil(epochs*IterationNumberFor1epoch/(2**lr_decay_times)))
+        print("learning rates decay per " +
+              str(first_decay_steps) + " iterations")
         learning_rate = optimizers.schedules.CosineDecayRestarts(
-        initial_learning_rate = learning_rate,
-        first_decay_steps=first_decay_steps,
-        t_mul=2.0,
-        m_mul=lr_decay_rate,
-        alpha=1e-6,
-        name=None)
+            initial_learning_rate=learning_rate,
+            first_decay_steps=first_decay_steps,
+            t_mul=2.0,
+            m_mul=lr_decay_rate,
+            alpha=1e-6,
+            name=None)
 
-    model.compile(optimizer = optimizers.Adam(learning_rate = learning_rate), loss = 'categorical_crossentropy', metrics = ['accuracy'])
-    model._name="Custom3DResNet152V2_Dropout"
+    model.compile(optimizer=optimizers.Adam(learning_rate=learning_rate),
+                  loss='categorical_crossentropy', metrics=['accuracy'])
+    model._name = "Custom3DResNet152V2_Dropout"
     return model
-
